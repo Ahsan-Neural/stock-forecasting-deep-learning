@@ -28,10 +28,10 @@ h1, h2, h3 {{ color: {TEXT}; }}
 
 @st.cache_data
 def load_data():
-    results = pd.read_csv("final_all_models_all_stocks.csv")
-    forecasts = pd.read_csv("future_10day_forecasts.csv")
-    walk_fwd = pd.read_csv("walk_forward_validation_AAPL.csv")
-    tuning = pd.read_csv("tuning_results_AAPL.csv")
+    results = pd.read_csv("results/final_all_models_all_stocks.csv")
+    forecasts = pd.read_csv("results/future_10day_forecasts.csv")
+    walk_fwd = pd.read_csv("results/walk_forward_validation_AAPL.csv")
+    tuning = pd.read_csv("results/tuning_results_AAPL.csv")
     return results, forecasts, walk_fwd, tuning
 
 results_df, forecast_df, walk_df, tuning_df = load_data()
