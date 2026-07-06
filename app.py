@@ -1,0 +1,123 @@
+
+import streamlit as st
+import pandas as pd
+import numpy as np
+import plotly.graph_objects as go
+import plotly.express as px
+
+st.set_page_config(page_title="Stock Forecasting Dashboard", layout="wide", page_icon="📈")
+
+DARK_BG = "#0e1117"
+CARD_BG = "#161b22"
+ACCENT = "#58a6ff"
+TEXT = "#e6edf3"
+MUTED = "#8b949e"
+
+st.markdown(f"""
+<style>
+.stApp {{ background-color: {DARK_BG}; color: {TEXT}; }}
+[data-testid="stMetric"] {{
+    background-color: {CARD_BG};
+    border: 1px solid #30363d;
+    border-radius: 10px;
+    padding: 14px;
+}}
+h1, h2, h3 {{ color: {TEXT}; }}
+</style>
+""", unsafe_allow_html=True)
+
+@st.cache_data
+def load_data():
+    results = pd.read_csv("final_all_models_all_stocks.csv")
+    forecasts = pd.read_csv("future_10day_forecasts.csv")
+    walk_fwd = pd.read_csv("walk_forward_validation_AAPL.csv")
+    tuning = pd.read_csv("tuning_results_AAPL.csv")
+    return results, forecasts, walk_fwd, tuning
+
+results_df, forecast_df, walk_df, tuning_df = load_data()
+
+st.title("📈 Stock Price Forecasting Dashboard")
+st.caption("Deep Learning Models: ANN · LSTM · GRU · Transformer — 5 stocks, 10 years of daily data")
+
+tickers = sorted(results_df["Stock"].unique())
+models = sorted(results_df["Model"].unique())
+
+with st.sidebar:
+    st.header("Controls")
+    selected_ticker = st.selectbox("Select Stock", tickers, index=0)
+    selected_model = st.selectbox("Select Model", models, index=models.index("GRU") if "GRU" in models else 0)
+    st.markdown("---")
+    st.markdown("**Project Summary**")
+    st.markdown("- 5 stocks × 10 years daily data\n- 4 architectures compared\n- GRU: best & most consistent\n- Bonus: 10-day forecast, walk-forward validation")
+
+tab1, tab2, tab3, tab4 = st.tabs(["📊 Model Performance", "🔮 10-Day Forecast", "🧪 Walk-Forward Validation", "⚙️ Hyperparameter Tuning"])
+
+with tab1:
+    st.subheader(f"{selected_model} Performance — {selected_ticker}")
+    row = results_df[(results_df["Stock"] == selected_ticker) & (results_df["Model"] == selected_model)].iloc[0]
+
+    c1, c2, c3, c4, c5 = st.columns(5)
+    c1.metric("MAE", f"{row['MAE']:.4f}")
+    c2.metric("RMSE", f"{row['RMSE']:.4f}")
+    c3.metric("MAPE", f"{row['MAPE']:.2f}%")
+    c4.metric("R² Score", f"{row['R2']:.3f}")
+    c5.metric("MSE", f"{row['MSE']:.5f}")
+
+    st.markdown("---")
+    col1, col2 = st.columns(2)
+
+    with col1:
+        st.markdown(f"**Model Comparison — {selected_ticker}**")
+        sub = results_df[results_df["Stock"] == selected_ticker]
+        fig = px.bar(sub, x="Model", y="R2", color="Model",
+                     color_discrete_map={"GRU": ACCENT, "LSTM": "#f78166", "Transformer": "#3fb950", "ANN": "#d29922"})
+        fig.update_layout(template="plotly_dark", paper_bgcolor=DARK_BG, plot_bgcolor=DARK_BG,
+                           showlegend=False, height=380)
+        st.plotly_chart(fig, use_container_width=True)
+
+    with col2:
+        st.markdown("**R² Heatmap — All Stocks × Models**")
+        pivot = results_df.pivot(index="Stock", columns="Model", values="R2")
+        fig2 = go.Figure(data=go.Heatmap(z=pivot.values, x=pivot.columns, y=pivot.index,
+                                          colorscale="RdYlGn", zmid=0, text=np.round(pivot.values, 2),
+                                          texttemplate="%{text}", colorbar=dict(title="R²")))
+        fig2.update_layout(template="plotly_dark", paper_bgcolor=DARK_BG, plot_bgcolor=DARK_BG, height=380)
+        st.plotly_chart(fig2, use_container_width=True)
+
+    st.markdown("**Full Results Table**")
+    st.dataframe(results_df.style.background_gradient(subset=["R2"], cmap="RdYlGn"), use_container_width=True)
+
+with tab2:
+    st.subheader(f"10-Day Future Price Forecast — {selected_ticker}")
+    fc = forecast_df[forecast_df["Ticker"] == selected_ticker] if "Ticker" in forecast_df.columns else forecast_df
+    if len(fc) > 0:
+        fig3 = go.Figure()
+        fig3.add_trace(go.Scatter(x=list(range(1, len(fc)+1)), y=fc.iloc[:, -1],
+                                   mode="lines+markers", line=dict(color=ACCENT, width=3), marker=dict(size=9)))
+        fig3.update_layout(template="plotly_dark", paper_bgcolor=DARK_BG, plot_bgcolor=DARK_BG,
+                            xaxis_title="Forecast Day", yaxis_title="Predicted Price", height=450)
+        st.plotly_chart(fig3, use_container_width=True)
+        st.dataframe(fc, use_container_width=True)
+    else:
+        st.info("No forecast data available for this ticker.")
+
+with tab3:
+    st.subheader("Walk-Forward Validation — AAPL (GRU)")
+    fig4 = go.Figure()
+    if "Actual" in walk_df.columns and "Predicted" in walk_df.columns:
+        fig4.add_trace(go.Scatter(y=walk_df["Actual"], mode="lines", name="Actual", line=dict(color=MUTED)))
+        fig4.add_trace(go.Scatter(y=walk_df["Predicted"], mode="lines", name="Predicted", line=dict(color=ACCENT)))
+    fig4.update_layout(template="plotly_dark", paper_bgcolor=DARK_BG, plot_bgcolor=DARK_BG,
+                        height=450, legend=dict(orientation="h", y=1.1))
+    st.plotly_chart(fig4, use_container_width=True)
+    st.dataframe(walk_df, use_container_width=True)
+
+with tab4:
+    st.subheader("GRU Hyperparameter Tuning — AAPL")
+    fig5 = px.bar(tuning_df, x="Value", y="R2", color="Hyperparameter")
+    fig5.update_layout(template="plotly_dark", paper_bgcolor=DARK_BG, plot_bgcolor=DARK_BG, height=450)
+    st.plotly_chart(fig5, use_container_width=True)
+    st.dataframe(tuning_df, use_container_width=True)
+
+st.markdown("---")
+st.caption("Built with Streamlit · TensorFlow/Keras · Data via yFinance (10 years daily, 5 tickers: AAPL, ABT, JPM, XOM, WMT)")

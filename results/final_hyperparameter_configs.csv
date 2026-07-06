@@ -1,0 +1,5 @@
+Model,Batch_Size,Dropout,Optimizer,Sequence_Length
+ANN,64,0.1,Adam,60
+LSTM,32,0.1,Adam,60
+Transformer,64,0.1,Adam,60
+GRU,64,0.1,Adam,60
