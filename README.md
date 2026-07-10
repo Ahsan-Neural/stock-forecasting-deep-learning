@@ -65,6 +65,7 @@ stock-forecasting-deep-learning/
 
 ---
 
+
 ## Live Dashboard
 
 Streamlit app:
@@ -135,11 +136,13 @@ For best reproducibility, pin dependency versions and log run date/time.
 
 ---
 
+
 ## License
 
 This project is licensed under the **MIT License**.
 
 See the full license text in [`LICENSE`](LICENSE).
+
 
 ---
 
